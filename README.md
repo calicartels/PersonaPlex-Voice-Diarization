@@ -1,8 +1,15 @@
 # PersonaPlex Voice Diarization Analysis
 
-## Goal
+## Goal: Tldr
 
-Analyze whether the Mimi encoder (from PersonaPlex/Moshi) can be used for speaker diarization. The core question: **Does Mimi capture acoustic (speaker) information or semantic (text) information?**
+To basically transform Nvidia's PersonaPlex model, which is part of a family of conversational models by Nvidia, built on top of the moshi model by kyutai. Since I dont really have too much in training expenditure, I only want to anlyze and modify the encoder for the same. 
+
+The encoder, referred to as the MiMi encoder, is said to encode both the semantic content(what a person speaks) along with their acoustic information(pitch, tone etc.) and produce a vector with both this information encoded in it. 
+
+My task to analyze whether MiMi comes out of the box with speaker diarization enabled, even though its not built for that, and whether it can capture these acoustic information to carefully split the different types of speakers. 
+
+And if its not doing so, possibly make changes to the encoder to make it possible for it to diarize voice on the fly
+
 
 ## Problem
 
