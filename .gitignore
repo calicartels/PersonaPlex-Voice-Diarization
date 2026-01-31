@@ -183,3 +183,11 @@ mlx-trace.json
 # Include everything in assets
 !assets/
 !assets/**
+
+
+.venv/
+baseline_stats.txtvoice test/
+
+voice test/
+
+.DS_Store
