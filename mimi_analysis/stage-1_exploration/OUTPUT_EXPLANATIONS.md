@@ -10,6 +10,8 @@ This stage explores the Mimi encoder's internal workings by processing sample au
 ### 1. `encoding_pipeline.png`
 **What it reveals:** The audio processing flow through Mimi
 
+![Encoding Pipeline](outputs/encoding_pipeline.png)
+
 **Key revelations:**
 - Audio is transformed into 512-dimensional features at each time frame, not a single embedding
 - The encoder produces temporal sequences that need aggregation (pooling) for speaker representation
@@ -21,6 +23,8 @@ This stage explores the Mimi encoder's internal workings by processing sample au
 
 ### 2. `encoder_features_3d_pca.png`
 **What it reveals:** How encoder features evolve over time and their temporal structure
+
+![Encoder Features 3D PCA](outputs/encoder_features_3d_pca.png)
 
 **Key revelations:**
 - Features change throughout the audio, showing temporal dynamics
