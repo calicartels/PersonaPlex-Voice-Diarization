@@ -1,0 +1,10 @@
+torch>=2.1
+torchaudio>=2.1
+datasets>=2.14
+numpy
+scipy
+scikit-learn
+tqdm
+
+
+
