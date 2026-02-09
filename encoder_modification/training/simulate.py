@@ -19,24 +19,40 @@ def build_source_manifest():
     ls_root = RAW / "librispeech" / "LibriSpeech" / "train-clean-100"
     entries = []
     for flac in sorted(ls_root.rglob("*.flac")):
-        txt_dir = flac.parent
-        trans = txt_dir / f"{txt_dir.name}.trans.txt"
+        info = sf.info(str(flac))
+        spk = flac.parts[-3]
+        chapter = flac.parts[-2]
+        # Choice: trans file is {spk}-{chapter}.trans.txt (LibriSpeech convention).
+        # Original code used {chapter}.trans.txt which doesn't exist.
+        trans = flac.parent / f"{spk}-{chapter}.trans.txt"
         text = ""
         if trans.exists():
             for line in open(trans):
                 if line.startswith(flac.stem):
                     text = line.strip().split(" ", 1)[1]
                     break
-        info = sf.info(str(flac))
+        words = text.split() if text else []
+        # NeMo simulator requires min 2 alignments per utterance
+        if len(words) < 2:
+            continue
+        # Choice: fake alignments by spacing words evenly across duration.
+        # Same approach as Sortformer paper Eq.24 (syllable-based approximation).
+        # Alternative: run Montreal Forced Aligner, but adds heavy dependency.
+        n = len(words)
+        step = info.duration / (n + 1)
+        alignments = [round(step * (i + 1), 3) for i in range(n)]
         entries.append({
             "audio_filepath": str(flac),
             "duration": info.duration,
-            "text": text,
+            "speaker_id": spk,
+            "words": words,
+            "alignments": alignments,
         })
 
     with open(manifest, "w") as f:
         for e in entries:
             f.write(json.dumps(e) + "\n")
+    print(f"  Manifest: {len(entries)} utterances from {ls_root}")
     return manifest
 
 
@@ -45,9 +61,9 @@ def write_nemo_config(name, params, source_manifest):
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg_path = SIM / f"{name}.yaml"
 
-    # Choice: NeMo multispeaker_simulator with Hydra YAML config.
-    # This is Sortformer's exact data generation tool.
-    # Alternative: custom mixer, but NeMo handles turn-taking dynamics better.
+    # Choice: full NeMo schema with all required sections.
+    # RIR/augmentation/noise disabled — clean simulated data matches
+    # Sortformer's default simulation setup.
     cfg = {
         "data_simulator": {
             "manifest_filepath": str(source_manifest),
@@ -66,8 +82,9 @@ def write_nemo_config(name, params, source_manifest):
                 "min_dominance": 0.05,
                 "turn_prob": 0.875,
                 "min_turn_prob": 0.5,
-                # Choice: mean_silence=0.15 is NeMo default.
-                # Our original 0.5 was too high — NeMo measures differently.
+                # Choice: NeMo defaults for turn-taking dynamics.
+                # Alternative: custom overlap/silence from our SIM_CONFIGS,
+                # but NeMo's mean_overlap already captures this via params["overlap"].
                 "mean_silence": 0.15,
                 "mean_silence_var": 0.01,
                 "per_silence_var": 900,
@@ -136,7 +153,8 @@ def write_nemo_config(name, params, source_manifest):
                     "noise_src_pos": [[1.5, 2.5, 1.5], [2, 2.5, 1.5]],
                     "mic_config": {
                         "num_channels": 2,
-                        "pos_rcv": [[[[0.5, 1.5], [0.5, 1.5], [0.5, 1.5]], [[0.5, 1.5], [0.5, 1.5], [0.5, 1.5]]]],
+                        "pos_rcv": [[[[0.5, 1.5], [0.5, 1.5], [0.5, 1.5]],
+                                      [[0.5, 1.5], [0.5, 1.5], [0.5, 1.5]]]],
                         "orV_rcv": None,
                         "mic_pattern": "omni",
                     },
@@ -155,35 +173,20 @@ def write_nemo_config(name, params, source_manifest):
     return cfg_path
 
 
+def run_nemo_simulator(name):
+    if not NEMO.exists():
+        run(f"git clone --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
+    run(f"python tools/speech_data_simulator/multispeaker_simulator.py "
+        f"--config-path {SIM} --config-name {name}.yaml", cwd=str(NEMO))
+
+
 def run_one(name, source_manifest):
     params = SIM_CONFIGS[name]
     est_h = params["n_sessions"] * params["length"] / 3600
 
     write_nemo_config(name, params, source_manifest)
+    run_nemo_simulator(name)
 
-    # Choice: find NeMo script in installed package location.
-    # Alternative: clone NeMo repo, but pip install is cleaner.
-    import importlib.util
-    nemo_spec = importlib.util.find_spec("nemo")
-    if nemo_spec and nemo_spec.origin:
-        nemo_dir = Path(nemo_spec.origin).parent.parent
-        script = nemo_dir / "tools" / "speech_data_simulator" / "multispeaker_simulator.py"
-        if script.exists():
-            run(f"python {script} --config-path {SIM} --config-name {name}.yaml")
-        else:
-            # Fallback: clone repo if script not found
-            if not NEMO.exists():
-                run(f"git clone --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
-            run(f"python tools/speech_data_simulator/multispeaker_simulator.py "
-                f"--config-path {SIM} --config-name {name}.yaml", cwd=str(NEMO))
-    else:
-        # Last resort: clone repo
-        if not NEMO.exists():
-            run(f"git clone --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
-        run(f"python tools/speech_data_simulator/multispeaker_simulator.py "
-            f"--config-path {SIM} --config-name {name}.yaml", cwd=str(NEMO))
-
-    # Build manifest from generated files
     out_dir = SIM / name
     entries = []
     for rttm in sorted(out_dir.glob("*.rttm")):
