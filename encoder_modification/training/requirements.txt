@@ -12,3 +12,4 @@ hydra-core
 omegaconf
 tqdm
 wandb
+nemo_toolkit[all]>=1.20.0

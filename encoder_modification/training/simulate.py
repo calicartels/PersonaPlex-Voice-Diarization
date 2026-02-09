@@ -88,12 +88,27 @@ def run_one(name, source_manifest):
 
     write_nemo_config(name, params, source_manifest)
 
-    # NeMo simulator entry point
-    run(
-        f"python tools/speech_data_simulator/multispeaker_simulator.py "
-        f"--config-path {SIM} --config-name {name}.yaml",
-        cwd=str(NEMO),
-    )
+    # Choice: find NeMo script in installed package location.
+    # Alternative: clone NeMo repo, but pip install is cleaner.
+    import importlib.util
+    nemo_spec = importlib.util.find_spec("nemo")
+    if nemo_spec and nemo_spec.origin:
+        nemo_dir = Path(nemo_spec.origin).parent.parent
+        script = nemo_dir / "tools" / "speech_data_simulator" / "multispeaker_simulator.py"
+        if script.exists():
+            run(f"python {script} --config-path {SIM} --config-name {name}.yaml")
+        else:
+            # Fallback: clone repo if script not found
+            if not NEMO.exists():
+                run(f"git clone --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
+            run(f"python tools/speech_data_simulator/multispeaker_simulator.py "
+                f"--config-path {SIM} --config-name {name}.yaml", cwd=str(NEMO))
+    else:
+        # Last resort: clone repo
+        if not NEMO.exists():
+            run(f"git clone --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
+        run(f"python tools/speech_data_simulator/multispeaker_simulator.py "
+            f"--config-path {SIM} --config-name {name}.yaml", cwd=str(NEMO))
 
     # Build manifest from generated files
     out_dir = SIM / name

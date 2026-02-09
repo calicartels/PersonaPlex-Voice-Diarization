@@ -29,7 +29,7 @@ python eval.py
 
 echo "Step 8: Upload checkpoint to HuggingFace"
 if [ -n "$HF_REPO" ]; then
-    python upload_checkpoint.py --hf-repo "$HF_REPO"
+    python upload_checkpoint.py
 else
     echo "  Skipping upload (set HF_REPO env var to enable)"
 fi

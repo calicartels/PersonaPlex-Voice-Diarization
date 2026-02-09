@@ -57,15 +57,18 @@ def download_voxconverse():
     run("pip install yt-dlp -q")
     audio = out / "audio"
     audio.mkdir(exist_ok=True)
-    run(f"cd {repo} && python download_videos.py --save_path {audio} || true")
+    download_script = repo / "download_videos.py"
+    if download_script.exists():
+        run(f"cd {repo} && python download_videos.py --save_path {audio} || true")
     return out
 
 
 def clone_nemo():
-    if NEMO.exists():
-        return NEMO
-    print("  Cloning NeMo repository...")
-    run(f"git clone --progress --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
+    import subprocess
+    result = subprocess.run(["python", "-c", "import nemo"], capture_output=True)
+    if result.returncode != 0:
+        print("  Installing NeMo...")
+        run("pip install 'nemo_toolkit[all]>=1.20.0'")
     return NEMO
 
 
