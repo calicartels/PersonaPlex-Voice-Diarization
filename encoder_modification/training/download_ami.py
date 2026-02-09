@@ -2,6 +2,7 @@ import os
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from tqdm import tqdm
 from config import RAW
 
 AMI_BASE = "https://groups.inf.ed.ac.uk/ami"
@@ -36,10 +37,15 @@ def all_meeting_ids():
 def download_audio(meeting_ids):
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     failed = []
-    for i, mid in enumerate(meeting_ids):
+    to_download = [mid for mid in meeting_ids if not (AUDIO_DIR / f"{mid}.Mix-Headset.wav").exists()]
+    
+    if not to_download:
+        print(f"  All {len(meeting_ids)} audio files already downloaded")
+        return failed
+    
+    print(f"  Downloading {len(to_download)} audio files (~5GB)...")
+    for mid in tqdm(to_download, desc="  AMI audio", unit="file"):
         wav_path = AUDIO_DIR / f"{mid}.Mix-Headset.wav"
-        if wav_path.exists():
-            continue
         url = f"{AUDIO_BASE}/{mid}/audio/{mid}.Mix-Headset.wav"
         ret = subprocess.run(
             ["wget", "-q", "--tries=3", "--timeout=30", "-O", str(wav_path), url],
@@ -48,11 +54,10 @@ def download_audio(meeting_ids):
         if ret.returncode != 0:
             wav_path.unlink(missing_ok=True)
             failed.append(mid)
-        if (i + 1) % 20 == 0:
-            print(f"  audio: {i+1}/{len(meeting_ids)}")
-    print(f"audio done: {len(meeting_ids) - len(failed)} ok, {len(failed)} failed")
+    
+    print(f"  Done: {len(to_download) - len(failed)} ok, {len(failed)} failed")
     if failed:
-        print(f"  failed: {failed[:10]}{'...' if len(failed) > 10 else ''}")
+        print(f"  Failed: {failed[:10]}{'...' if len(failed) > 10 else ''}")
     return failed
 
 
@@ -60,15 +65,17 @@ def download_annotations():
     ANNOT_DIR.mkdir(parents=True, exist_ok=True)
     zip_path = OUT_DIR / "annotations.zip"
     if not zip_path.exists():
+        print("  Downloading annotations (22MB)")
         subprocess.run(
-            ["wget", "-q", "--tries=3", "-O", str(zip_path), ANNOTATIONS_URL],
+            ["wget", "--progress=bar:force", "--tries=3", "-O", str(zip_path), ANNOTATIONS_URL],
             check=True,
         )
+    print("  Extracting annotations...")
     subprocess.run(
         ["unzip", "-o", "-q", str(zip_path), "segments/*", "-d", str(ANNOT_DIR)],
         check=True,
     )
-    print(f"annotations extracted to {ANNOT_DIR}")
+    print(f"  Annotations extracted to {ANNOT_DIR}")
 
 
 def parse_segments_xml(xml_path):
@@ -89,7 +96,7 @@ def convert_to_rttm(meeting_ids):
     RTTM_DIR.mkdir(parents=True, exist_ok=True)
     seg_dir = ANNOT_DIR / "segments"
     converted = 0
-    for mid in meeting_ids:
+    for mid in tqdm(meeting_ids, desc="  Converting to RTTM", unit="meeting"):
         rttm_path = RTTM_DIR / f"{mid}.rttm"
         lines = []
         for xml_file in sorted(seg_dir.glob(f"{mid}.*.segments.xml")):
@@ -101,7 +108,7 @@ def convert_to_rttm(meeting_ids):
             lines.sort(key=lambda l: float(l.split()[3]))
             rttm_path.write_text("\n".join(lines) + "\n")
             converted += 1
-    print(f"rttm: {converted} meetings converted to {RTTM_DIR}")
+    print(f"  Converted {converted} meetings to {RTTM_DIR}")
 
 
 EVAL_MEETINGS = {

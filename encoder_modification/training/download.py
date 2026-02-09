@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from tqdm import tqdm
 from config import RAW, NEMO
 
 
@@ -18,9 +19,12 @@ def download_librispeech():
     # Alternative: add train-clean-360 for more speaker diversity,
     # but 251 speakers is enough to simulate 500h with varied voices.
     url = "https://www.openslr.org/resources/12/train-clean-100.tar.gz"
-    run(f"wget -c {url} -O {out}/tc100.tar.gz")
-    run(f"tar -xzf {out}/tc100.tar.gz -C {out}")
-    (out / "tc100.tar.gz").unlink()
+    tar_path = out / "tc100.tar.gz"
+    print("  Downloading LibriSpeech (28GB)")
+    run(f"wget --progress=bar:force -c {url} -O {tar_path}")
+    print("  Extracting...")
+    run(f"tar -xzf {tar_path} -C {out}")
+    tar_path.unlink()
     return target
 
 
@@ -60,7 +64,8 @@ def download_voxconverse():
 def clone_nemo():
     if NEMO.exists():
         return NEMO
-    run(f"git clone --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
+    print("  Cloning NeMo repository...")
+    run(f"git clone --progress --depth 1 https://github.com/NVIDIA/NeMo.git {NEMO}")
     return NEMO
 
 
