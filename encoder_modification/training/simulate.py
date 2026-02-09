@@ -53,27 +53,100 @@ def write_nemo_config(name, params, source_manifest):
             "manifest_filepath": str(source_manifest),
             "sr": SIM_SR,
             "random_seed": 42,
+            "multiprocessing_chunksize": 10000,
             "session_config": {
                 "num_speakers": params["n_speakers"],
                 "num_sessions": params["n_sessions"],
                 "session_length": params["length"],
             },
             "session_params": {
-                # Choice: overlap_prob varies per config (0.12-0.25).
-                # Sortformer default is 0.12, AMI has ~16% measured overlap.
-                "overlap_prob": params["overlap"],
-                # Choice: 0.5s mean silence matches natural turn-taking.
-                # Alternative: 0.8s (slower pace), but less data-efficient.
-                "mean_silence": 0.5,
-                "mean_silence_var": 0.1,
-                "mean_overlap": 0.4,
-                "mean_overlap_var": 0.1,
-                # Choice: 0.1 silence ratio. Sortformer used 0.1 as default.
-                "mean_silence_ratio": 0.1,
+                "max_audio_read_sec": 20.0,
+                "sentence_length_params": [0.4, 0.05],
+                "dominance_var": 0.11,
+                "min_dominance": 0.05,
+                "turn_prob": 0.875,
+                "min_turn_prob": 0.5,
+                # Choice: mean_silence=0.15 is NeMo default.
+                # Our original 0.5 was too high — NeMo measures differently.
+                "mean_silence": 0.15,
+                "mean_silence_var": 0.01,
+                "per_silence_var": 900,
+                "per_silence_min": 0.0,
+                "per_silence_max": -1,
+                "mean_overlap": params["overlap"],
+                "mean_overlap_var": 0.01,
+                "per_overlap_var": 900,
+                "per_overlap_min": 0.0,
+                "per_overlap_max": -1,
+                "start_window": True,
+                "window_type": "hamming",
+                "window_size": 0.05,
+                "start_buffer": 0.1,
+                "split_buffer": 0.1,
+                "release_buffer": 0.1,
+                "normalize": True,
+                "normalization_type": "equal",
+                "normalization_var": 0.1,
+                "min_volume": 0.75,
+                "max_volume": 1.25,
+                "end_buffer": 0.5,
             },
             "outputs": {
                 "output_dir": str(out_dir),
                 "output_filename": "session",
+                "overwrite_output": True,
+                "output_precision": 3,
+            },
+            "background_noise": {
+                "add_bg": False,
+                "background_manifest": None,
+                "num_noise_files": 10,
+                "snr": 60,
+                "snr_min": None,
+                "snr_max": None,
+            },
+            "segment_augmentor": {
+                "add_seg_aug": False,
+                "augmentor": {
+                    "gain": {"prob": 0.5, "min_gain_dbfs": -10.0, "max_gain_dbfs": 10.0}
+                },
+            },
+            "session_augmentor": {
+                "add_sess_aug": False,
+                "augmentor": {
+                    "white_noise": {"prob": 1.0, "min_level": -90, "max_level": -46}
+                },
+            },
+            "speaker_enforcement": {
+                "enforce_num_speakers": True,
+                "enforce_time": [0.25, 0.75],
+            },
+            "segment_manifest": {
+                "window": 0.5,
+                "shift": 0.25,
+                "step_count": 50,
+                "deci": 3,
+            },
+            "rir_generation": {
+                "use_rir": False,
+                "toolkit": "nemo",
+                "room_config": {
+                    "room_sz": [[3, 3, 2.5], [10, 6, 4]],
+                    "pos_src": [[[1, 1, 1.5], [1.5, 2, 1.5]]],
+                    "noise_src_pos": [[1.5, 2.5, 1.5], [2, 2.5, 1.5]],
+                    "mic_config": {
+                        "num_channels": 2,
+                        "pos_rcv": [[[[0.5, 1.5], [0.5, 1.5], [0.5, 1.5]], [[0.5, 1.5], [0.5, 1.5], [0.5, 1.5]]]],
+                        "orV_rcv": None,
+                        "mic_pattern": "omni",
+                    },
+                    "absorbtion_params": {
+                        "abs_weights": [0.9, 0.9, 0.9, 0.9, 0.9, 0.9],
+                        "T60": 0.1,
+                        "att_diff": 15.0,
+                        "att_max": 60.0,
+                    },
+                },
             },
         }
     }
