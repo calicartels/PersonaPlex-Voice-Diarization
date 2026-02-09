@@ -5,18 +5,21 @@ import torch
 # -- Paths (edit these) --
 
 # Get the root of this project (PersonaPlex-Voice-Diarization)
-PROJECT_ROOT = Path(__file__).parent.parent
+# Can be overridden via ENCODER_MODIFICATION_ROOT env var (useful for Colab)
+PROJECT_ROOT = Path(os.getenv("ENCODER_MODIFICATION_ROOT", Path(__file__).parent.parent))
 
 # Local moshi folder is already in this repo.
 # We add this to sys.path so we can import moshi.models.loaders.get_mimi
-PERSONAPLEX_REPO = str(PROJECT_ROOT / "moshi")
+# Can be overridden via PERSONAPLEX_REPO env var (useful for Colab)
+PERSONAPLEX_REPO = os.getenv("PERSONAPLEX_REPO", str(PROJECT_ROOT / "moshi"))
 
 # Mimi checkpoint file. Already downloaded in weights/ folder.
 # File: tokenizer-e351c8d8-checkpoint125.safetensors
 # Source: https://huggingface.co/nvidia/personaplex-7b-v1
 # Choice: using the PersonaPlex checkpoint rather than Kyutai's original
 # because we want to test the exact encoder that PersonaPlex fine-tuned on.
-MIMI_CHECKPOINT = str(PROJECT_ROOT / "weights" / "tokenizer-e351c8d8-checkpoint125.safetensors")
+# Can be overridden via MIMI_CHECKPOINT env var (useful for Colab)
+MIMI_CHECKPOINT = os.getenv("MIMI_CHECKPOINT", str(PROJECT_ROOT / "weights" / "tokenizer-e351c8d8-checkpoint125.safetensors"))
 
 # Where to cache extracted embeddings and downloaded data.
 CACHE_DIR = os.path.expanduser("~/.cache/encoder_modification")

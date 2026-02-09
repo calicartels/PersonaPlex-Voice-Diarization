@@ -5,6 +5,7 @@ numpy
 scipy
 scikit-learn
 tqdm
+safetensors
 
 
 

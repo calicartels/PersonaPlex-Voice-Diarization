@@ -127,15 +127,33 @@ more effectively, potentially pushing EER below 15%.
 
 ## Usage
 
+### Local Setup
+
     pip install -r requirements.txt
 
-    # edit config.py: set MIMI_CHECKPOINT and PERSONAPLEX_REPO paths
+    # Paths are auto-detected from repo structure
+    # Override via environment variables if needed:
+    # export ENCODER_MODIFICATION_ROOT=/path/to/PersonaPlex-Voice-Diarization
+    # export MIMI_CHECKPOINT=/path/to/tokenizer-e351c8d8-checkpoint125.safetensors
 
     # Step 0: raw cosine baseline
     python run_baseline.py
 
     # Step 0.5: linear probe
     python run_linear_probe.py
+
+    # Step 1: adapter training (requires GPU)
+    python run_adapter.py
+
+### Colab Setup
+
+See [COLAB_SETUP.md](COLAB_SETUP.md) for complete Colab instructions.
+
+Quick start:
+1. Clone repo: `!git clone https://github.com/YOUR_USERNAME/PersonaPlex-Voice-Diarization.git`
+2. Download checkpoint: `!wget -O /content/weights/tokenizer-*.safetensors https://huggingface.co/nvidia/personaplex-7b-v1/resolve/main/tokenizer-e351c8d8-checkpoint125.safetensors`
+3. Set env vars: `os.environ["ENCODER_MODIFICATION_ROOT"] = "/content/PersonaPlex-Voice-Diarization"`
+4. Run scripts as above
 
 ## Dependencies
 
