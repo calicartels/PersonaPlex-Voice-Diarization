@@ -48,9 +48,9 @@ D_MODEL = 384
 N_HEADS = 6
 FF_DIM = 1536
 N_LAYERS = 4
-# Choice: 0.5 dropout matches Sortformer's Transformer layers.
+# Choice: 0.1 dropout since this is a smaller model as compared to Sortformer.
 # Alternative: 0.3 converges faster but higher overfit risk.
-DROPOUT = 0.5
+DROPOUT = 0.1
 
 # Choice: AdamW with Sortformer's exact schedule (inverse sqrt + warmup).
 # Alternative: cosine annealing (PersonaPlex uses it), marginal difference.

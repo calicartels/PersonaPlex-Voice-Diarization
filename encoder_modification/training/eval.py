@@ -31,7 +31,7 @@ def evaluate(model, loader, device, threshold):
     ders = []
     with torch.no_grad():
         for emb, labels, lengths in loader:
-            pred = model(emb.to(device)).cpu().numpy()
+            pred = torch.sigmoid(model(emb.to(device))).cpu().numpy()
             labels = labels.numpy()
             for i in range(pred.shape[0]):
                 T = lengths[i].item()

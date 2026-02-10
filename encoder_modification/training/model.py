@@ -41,23 +41,21 @@ class MimiSpeaker(nn.Module):
         pe = sinusoidal_pe(x.shape[1], D_MODEL, x.device)
         x = x + pe.unsqueeze(0)
         x = self.encoder(x)
-        return torch.sigmoid(self.head(x))  # (B, T, K)
-
+        # Choice: return raw logits, apply sigmoid only at inference.
+        # BCEWithLogitsLoss is numerically stable (log-sum-exp trick).
+        # Alternative: sigmoid here + BCE, but loses precision near 0/1.
+        return self.head(x)  # (B, T, K) — raw logits
 
 def sort_loss(pred, labels):
-    return F.binary_cross_entropy(pred, labels)
-
+    return F.binary_cross_entropy_with_logits(pred, labels)
 
 def pil_loss(pred, labels):
-    # Choice: brute-force 24 permutations for K=4.
-    # Alternative: Hungarian (scipy.optimize.linear_sum_assignment),
-    # but 4!=24 is trivially fast, no extra dependency.
     B, T, K = pred.shape
     perms = list(itertools.permutations(range(K)))
     best = torch.full((B,), float("inf"), device=pred.device)
     for perm in perms:
         permuted = labels[:, :, list(perm)]
-        loss = F.binary_cross_entropy(pred, permuted, reduction="none").mean(dim=(1, 2))
+        loss = F.binary_cross_entropy_with_logits(pred, permuted, reduction="none").mean(dim=(1, 2))
         best = torch.minimum(best, loss)
     return best.mean()
 
