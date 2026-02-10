@@ -50,8 +50,8 @@ val_loader = make_loader(MANIFESTS / "val.json", shuffle=False)
 input_dim = next(iter(val_loader))[0].shape[1]
 
 model = MimiSpeaker(input_dim=input_dim).to(device)
-model.load_state_dict(torch.load(CKPT / "best.pt", map_location=device))
-
+ckpt = torch.load(CKPT / "best.pt", map_location=device, weights_only=False)
+model.load_state_dict(ckpt["model_state_dict"])
 # Choice: sweep thresholds 0.3-0.6 to find optimal.
 # Sortformer tunes post-processing per dataset on dev splits.
 best_t, best_der = 0.5, 100.0
