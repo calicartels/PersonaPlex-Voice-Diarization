@@ -52,6 +52,7 @@ def extract_one(mimi, audio_path, device="cuda"):
         emb = mimi.encoder(wav)
         if hasattr(mimi, "encoder_transformer") and mimi.encoder_transformer is not None:
             emb = mimi.encoder_transformer(emb)
+            emb = emb[0] if isinstance(emb, list) else emb
     return emb.squeeze(0).cpu().numpy()  # (D, T)
 
 
