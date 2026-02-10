@@ -122,7 +122,7 @@ if resume_path.exists():
     best_val = ckpt["best_val_loss"]
     print(f"Resumed: epoch={start_epoch}, step={step}, best_val={best_val:.4f}")
 
-patience, wait = 5, 0
+patience, wait = 10, 0
 
 for epoch in range(start_epoch, MAX_EPOCHS):
     model.train()

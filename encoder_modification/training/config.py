@@ -63,5 +63,5 @@ SEG_S = 90
 # Choice: alpha=0.5 for hybrid loss (equal Sort + PIL), Sortformer's default.
 # Alternative: alpha=0.7 biases toward Sort Loss for stronger arrival-time ordering.
 ALPHA = 0.5
-MAX_EPOCHS = 20
+MAX_EPOCHS = 40
 VAL_EVERY = 500
