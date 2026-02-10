@@ -22,6 +22,10 @@ class DiarDataset(Dataset):
     def __getitem__(self, idx):
         e = self.entries[idx]
         emb = np.load(e["emb_filepath"])       # (D, T_emb)
+        # Mimi encoder runs at 25Hz but labels are at 12.5Hz (80ms frames).
+        # Choice: stride-2 downsample — simple, preserves sharp speaker boundaries.
+        # Alternative: average-pool pairs — smoother but blurs transitions.
+        emb = emb[:, ::2]                      # (D, T_emb//2) → 12.5Hz
         labels = np.load(e["labels_filepath"])  # (T_lbl, K)
 
         D, T_emb = emb.shape
