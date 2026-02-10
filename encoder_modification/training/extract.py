@@ -45,15 +45,39 @@ def extract_one(mimi, audio_path, device="cuda"):
         wav = wav.mean(dim=0, keepdim=True)
     wav = wav.unsqueeze(0).to(device)
 
-    with torch.no_grad():
-        # Choice: encoder + encoder_transformer output (continuous, pre-RVQ).
-        # Richest representation before quantization.
-        # Alternative: discrete RVQ codes, but loses fine-grained speaker info.
-        emb = mimi.encoder(wav)
-        if hasattr(mimi, "encoder_transformer") and mimi.encoder_transformer is not None:
-            emb = mimi.encoder_transformer(emb)
-            emb = emb[0] if isinstance(emb, list) else emb
-    return emb.squeeze(0).cpu().numpy()  # (D, T)
+    # Choice: chunk_secs=60 — safe for 24GB VRAM (60s * 24kHz = 1.44M samples).
+    # Alternative: 90s matches Sortformer training seg length, but tighter on VRAM.
+    # Short sessions (<= chunk_secs) take the fast path with no chunking overhead.
+    chunk_secs = 60
+    chunk_samples = chunk_secs * SAMPLE_RATE
+    total_samples = wav.shape[-1]
+
+    if total_samples <= chunk_samples:
+        # Fast path: fits in GPU memory in one pass
+        with torch.no_grad():
+            emb = mimi.encoder(wav)
+            if hasattr(mimi, "encoder_transformer") and mimi.encoder_transformer is not None:
+                emb = mimi.encoder_transformer(emb)
+                emb = emb[0] if isinstance(emb, list) else emb
+        return emb.squeeze(0).cpu().numpy()  # (D, T)
+
+    # Chunked path for long recordings (e.g. AMI meetings = 30-90 min)
+    # Choice: process on GPU, collect on CPU, concat at end.
+    # Alternative: accumulate on GPU then move — risks OOM on many chunks.
+    chunks = []
+    for start in range(0, total_samples, chunk_samples):
+        seg = wav[:, :, start:start + chunk_samples]
+        with torch.no_grad():
+            emb = mimi.encoder(seg)
+            if hasattr(mimi, "encoder_transformer") and mimi.encoder_transformer is not None:
+                emb = mimi.encoder_transformer(emb)
+                emb = emb[0] if isinstance(emb, list) else emb
+            chunks.append(emb.squeeze(0).cpu())
+        # Choice: empty_cache after each chunk — forces VRAM release.
+        # Alternative: skip this (faster but risks fragmentation on long files).
+        torch.cuda.empty_cache()
+
+    return torch.cat(chunks, dim=-1).numpy()  # (D, T)
 
 
 def process_manifest(mf_path, mimi, device):
