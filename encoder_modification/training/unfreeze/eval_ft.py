@@ -3,6 +3,7 @@ import sys, os
 import numpy as np
 import torch
 from scipy.ndimage import median_filter
+from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MANIFESTS, CKPT, MAX_SPEAKERS, PERSONAPLEX_REPO, MIMI_CHECKPOINT
@@ -30,7 +31,7 @@ def evaluate(model, loader, device, threshold):
     model.eval()
     results = []
     with torch.no_grad():
-        for emb, labels, lengths in loader:
+        for emb, labels, lengths in tqdm(loader, desc=f"  Eval t={threshold:.2f}", unit="batch"):
             pred = torch.sigmoid(model(emb.to(device))).cpu().numpy()
             labels_np = labels.numpy()
             for i in range(pred.shape[0]):

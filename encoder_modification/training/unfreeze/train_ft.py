@@ -1,6 +1,7 @@
 """Training loop with partial Mimi unfreezing and differential learning rates."""
 import sys, os
 import torch
+from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MANIFESTS, CKPT, LR, WEIGHT_DECAY, WARMUP, MAX_EPOCHS, VAL_EVERY, PERSONAPLEX_REPO, MIMI_CHECKPOINT
@@ -75,7 +76,8 @@ for epoch in range(MAX_EPOCHS):
     model.train()
     ep_loss, ep_n = 0.0, 0
 
-    for emb, labels, _ in train_loader:
+    pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{MAX_EPOCHS}", unit="batch")
+    for emb, labels, _ in pbar:
         emb, labels = emb.to(device), labels.to(device)
         loss = hybrid_loss(model(emb), labels)
 
@@ -91,13 +93,14 @@ for epoch in range(MAX_EPOCHS):
         ep_loss += loss.item()
         ep_n += 1
         step += 1
+        pbar.set_postfix(loss=f"{ep_loss/ep_n:.4f}", lr=f"{opt.param_groups[1]['lr']:.2e}")
 
         if USE_WANDB:
             wandb.log({"train/loss": loss.item(), "train/lr": opt.param_groups[1]["lr"]}, step=step)
 
         if step % VAL_EVERY == 0:
             vl = validate(model, val_loader, device)
-            print(f"step {step}: train={ep_loss/ep_n:.4f} val={vl:.4f}")
+            tqdm.write(f"step {step}: train={ep_loss/ep_n:.4f} val={vl:.4f}")
             if USE_WANDB:
                 wandb.log({"val/loss": vl}, step=step)
 

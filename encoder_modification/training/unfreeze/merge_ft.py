@@ -2,6 +2,7 @@
 import json
 import random
 import sys, os
+from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MANIFESTS
@@ -12,7 +13,7 @@ OVERSAMPLE = {"ami": 3, "voxconverse": 3}
 random.seed(42)
 all_entries = []
 
-for mf in sorted(MANIFESTS.glob("*_preconv.json")):
+for mf in tqdm(sorted(MANIFESTS.glob("*_preconv.json")), desc="Merging preconv", unit="manifest"):
     entries = [json.loads(l) for l in open(mf) if l.strip()]
     entries = [e for e in entries if e.get("preconv_emb_filepath") and e.get("labels_filepath")]
 
@@ -27,7 +28,7 @@ for mf in sorted(MANIFESTS.glob("*_preconv.json")):
 
 if not all_entries:
     print("No preconv manifests found. Falling back to existing _emb.json manifests...")
-    for mf in sorted(MANIFESTS.glob("*_emb.json")):
+    for mf in tqdm(sorted(MANIFESTS.glob("*_emb.json")), desc="Merging emb", unit="manifest"):
         entries = [json.loads(l) for l in open(mf) if l.strip()]
         entries = [e for e in entries if e.get("emb_filepath") and e.get("labels_filepath")]
         tag = mf.stem.replace("_emb", "")

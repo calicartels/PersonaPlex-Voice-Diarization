@@ -6,6 +6,7 @@ import torch
 import torchaudio
 import sys, os
 from pathlib import Path
+from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import EMB, MANIFESTS, SAMPLE_RATE, PERSONAPLEX_REPO, MIMI_CHECKPOINT
@@ -67,7 +68,7 @@ def process_manifest(mf_path, mimi, device):
 
     entries = [json.loads(l) for l in open(mf_path)]
     updated = []
-    for i, e in enumerate(entries):
+    for e in tqdm(entries, desc=f"  {tag}", unit="file"):
         audio = e.get("audio_filepath", "")
         if not audio or not Path(audio).exists():
             continue
@@ -78,8 +79,6 @@ def process_manifest(mf_path, mimi, device):
             np.save(emb_path, emb)
         e["preconv_emb_filepath"] = str(emb_path)
         updated.append(e)
-        if (i + 1) % 200 == 0:
-            print(f"  {tag}: {i+1}/{len(entries)}")
 
     out_mf = MANIFESTS / f"{tag}_preconv.json"
     with open(out_mf, "w") as f:
@@ -92,6 +91,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Loading Mimi on {device} (conv encoder only)")
 mimi = load_mimi(device)
 
-for mf in sorted(MANIFESTS.glob("*_labels.json")):
+manifests = sorted(MANIFESTS.glob("*_labels.json"))
+for mf in tqdm(manifests, desc="Manifests", unit="manifest"):
     n = process_manifest(mf, mimi, device)
-    print(f"{mf.stem}: {n} pre-conv embeddings extracted")
+    print(f"{mf.stem}: {n} pre-conv embeddings")
