@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 from tqdm import tqdm
 from config import RAW, NEMO
@@ -23,7 +24,10 @@ def download_librispeech():
     print("  Downloading LibriSpeech (28GB)")
     run(f"wget --progress=bar:force -c {url} -O {tar_path}")
     print("  Extracting...")
-    run(f"tar -xzf {tar_path} -C {out}")
+    with tarfile.open(tar_path, "r:gz") as tf:
+        members = tf.getmembers()
+        for m in tqdm(members, desc="  Extracting", unit="file"):
+            tf.extract(m, out)
     tar_path.unlink()
     return target
 

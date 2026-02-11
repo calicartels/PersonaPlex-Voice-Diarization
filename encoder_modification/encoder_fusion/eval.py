@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from scipy.ndimage import median_filter
+from tqdm import tqdm
 from config import MANIFESTS, CKPT, MAX_SPEAKERS
 from model import FusionSpeaker
 from load import make_loader
@@ -27,7 +28,7 @@ def evaluate(model, loader, device, threshold):
     model.eval()
     ders = []
     with torch.no_grad():
-        for emb, labels, lengths in loader:
+        for emb, labels, lengths in tqdm(loader, desc="Eval", unit="batch", leave=False):
             pred = torch.sigmoid(model(emb.to(device))).cpu().numpy()
             labels = labels.numpy()
             for i in range(pred.shape[0]):
@@ -49,7 +50,7 @@ ckpt = torch.load(CKPT / "best.pt", map_location=device, weights_only=False)
 model.load_state_dict(ckpt["model_state_dict"])
 
 best_t, best_der = 0.5, 100.0
-for t in [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]:
+for t in tqdm([0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], desc="Threshold sweep", unit="thresh"):
     der = evaluate(model, val_loader, device, t)
     print(f"  threshold={t:.2f}  DER={der:.2f}%")
     if der < best_der:

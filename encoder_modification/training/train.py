@@ -1,6 +1,7 @@
 import torch
 import json
 from pathlib import Path
+from tqdm import tqdm
 from config import MANIFESTS, CKPT, LR, WEIGHT_DECAY, WARMUP, MAX_EPOCHS, VAL_EVERY, D_MODEL, N_HEADS, FF_DIM, N_LAYERS, DROPOUT, ALPHA, BATCH
 from model import MimiSpeaker, hybrid_loss
 from load import make_loader
@@ -23,7 +24,7 @@ def validate(model, loader, device):
     model.eval()
     total, n = 0.0, 0
     with torch.no_grad():
-        for emb, labels, _ in loader:
+        for emb, labels, _ in tqdm(loader, desc="  Val", unit="batch", leave=False):
             emb, labels = emb.to(device), labels.to(device)
             total += hybrid_loss(model(emb), labels).item()
             n += 1
@@ -128,7 +129,7 @@ for epoch in range(start_epoch, MAX_EPOCHS):
     model.train()
     ep_loss, ep_n = 0.0, 0
 
-    for emb, labels, _ in train_loader:
+    for emb, labels, _ in tqdm(train_loader, desc=f"Epoch {epoch+1}", unit="batch", leave=False):
         emb, labels = emb.to(device), labels.to(device)
         loss = hybrid_loss(model(emb), labels)
 

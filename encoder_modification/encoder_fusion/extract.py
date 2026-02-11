@@ -6,6 +6,7 @@ import torchaudio
 import sys
 from pathlib import Path
 from scipy.ndimage import zoom
+from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).parent))
 from config import EMB, MANIFESTS, SAMPLE_RATE, TITANET_SR, TITANET_WIN_S, TITANET_HOP_S, PERSONAPLEX_REPO, MIMI_CHECKPOINT
@@ -84,7 +85,9 @@ def extract_titanet_sliding(titanet, audio_path, device):
     win_samples = int(TITANET_WIN_S * TITANET_SR)
     hop_samples = int(TITANET_HOP_S * TITANET_SR)
     embs = []
-    for start in range(0, len(sig) - win_samples + 1, hop_samples):
+    starts = list(range(0, len(sig) - win_samples + 1, hop_samples))
+    it = tqdm(starts, desc="  TitaNet", unit="win", leave=False) if len(starts) > 20 else starts
+    for start in it:
         chunk = sig[start:start + win_samples]
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             torchaudio.save(f.name, torch.from_numpy(chunk).unsqueeze(0), TITANET_SR)
@@ -126,7 +129,7 @@ def process_manifest(mf_path, mimi, titanet, device):
     out.mkdir(parents=True, exist_ok=True)
     entries = [json.loads(l) for l in open(mf_path)]
     updated = []
-    for i, e in enumerate(entries):
+    for i, e in tqdm(enumerate(entries), total=len(entries), desc=f"  {tag}", unit="file"):
         audio = e.get("audio_filepath", "")
         if not audio or not Path(audio).exists():
             continue
@@ -140,8 +143,6 @@ def process_manifest(mf_path, mimi, titanet, device):
         np.save(emb_path, fused)
         e["emb_filepath"] = str(emb_path)
         updated.append(e)
-        if (i + 1) % 50 == 0:
-            print(f"  {tag}: {i+1}/{len(entries)}")
     out_mf = MANIFESTS / f"{tag}_fusion_emb.json"
     with open(out_mf, "w") as f:
         for e in updated:

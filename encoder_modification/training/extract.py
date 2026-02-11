@@ -4,6 +4,7 @@ import torch
 import torchaudio
 import sys
 from pathlib import Path
+from tqdm import tqdm
 from config import EMB, MANIFESTS, SAMPLE_RATE, PERSONAPLEX_REPO, MIMI_CHECKPOINT
 
 
@@ -87,7 +88,7 @@ def process_manifest(mf_path, mimi, device):
 
     entries = [json.loads(l) for l in open(mf_path)]
     updated = []
-    for i, e in enumerate(entries):
+    for i, e in tqdm(enumerate(entries), total=len(entries), desc=f"  {tag}", unit="file"):
         audio = e.get("audio_filepath", "")
         if not audio or not Path(audio).exists():
             continue
@@ -98,8 +99,6 @@ def process_manifest(mf_path, mimi, device):
             np.save(emb_path, emb)
         e["emb_filepath"] = str(emb_path)
         updated.append(e)
-        if (i + 1) % 200 == 0:
-            print(f"  {tag}: {i+1}/{len(entries)}")
 
     out_mf = MANIFESTS / f"{tag}_emb.json"
     with open(out_mf, "w") as f:
