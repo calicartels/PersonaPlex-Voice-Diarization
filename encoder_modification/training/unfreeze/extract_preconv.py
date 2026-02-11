@@ -4,8 +4,10 @@ import json
 import numpy as np
 import torch
 import torchaudio
-import sys
+import sys, os
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import EMB, MANIFESTS, SAMPLE_RATE, PERSONAPLEX_REPO, MIMI_CHECKPOINT
 
 

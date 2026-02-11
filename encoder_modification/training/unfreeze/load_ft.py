@@ -2,8 +2,11 @@
 Loads pre-transformer Mimi embeddings and labels, crops to fixed length."""
 import json
 import numpy as np
+import sys, os
 import torch
 from torch.utils.data import Dataset, DataLoader
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import FRAME_HZ, SEG_S, MAX_SPEAKERS, BATCH
 
 # Choice: 90s segment at 25Hz (pre-downsample) = 2250 frames.

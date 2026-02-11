@@ -21,9 +21,12 @@ Architecture:
 import math
 import copy
 import itertools
+import sys, os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import D_MODEL, N_HEADS, FF_DIM, N_LAYERS, DROPOUT, MAX_SPEAKERS, ALPHA
 
 

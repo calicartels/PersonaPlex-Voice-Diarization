@@ -1,8 +1,10 @@
 """Evaluate fine-tuned MimiSpeaker. Per-speaker-count DER + confusion breakdown."""
-import sys
+import sys, os
 import numpy as np
 import torch
 from scipy.ndimage import median_filter
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MANIFESTS, CKPT, MAX_SPEAKERS, PERSONAPLEX_REPO, MIMI_CHECKPOINT
 from model_ft import MimiSpeakerFT
 from load_ft import make_loader_ft

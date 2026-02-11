@@ -1,6 +1,8 @@
 """Training loop with partial Mimi unfreezing and differential learning rates."""
-import sys
+import sys, os
 import torch
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MANIFESTS, CKPT, LR, WEIGHT_DECAY, WARMUP, MAX_EPOCHS, VAL_EVERY, PERSONAPLEX_REPO, MIMI_CHECKPOINT
 
 sys.path.insert(0, PERSONAPLEX_REPO)

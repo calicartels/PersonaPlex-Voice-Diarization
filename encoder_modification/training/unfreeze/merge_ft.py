@@ -1,6 +1,9 @@
 """Merge pre-conv embedding manifests into train/val splits for fine-tuning."""
 import json
 import random
+import sys, os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MANIFESTS
 
 # Choice: same 3x oversample ratio for real data as original pipeline.
