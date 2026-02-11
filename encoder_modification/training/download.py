@@ -59,7 +59,7 @@ def download_voxconverse():
     audio.mkdir(exist_ok=True)
     download_script = repo / "download_videos.py"
     if download_script.exists():
-    run(f"cd {repo} && python download_videos.py --save_path {audio} || true")
+        run(f"cd {repo} && python download_videos.py --save_path {audio} || true")
     return out
 
 
