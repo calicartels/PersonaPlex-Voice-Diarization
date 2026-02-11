@@ -49,7 +49,7 @@ with torch.no_grad():
 print("\n=== Full named_parameters (first 30) ===")
 params = list(et.named_parameters())
 for i, (name, p) in enumerate(params):
-    if i >= 30:
+    if i >= 90:
         print(f"  ... ({len(params)} total)")
         break
     print(f"  {name}: {p.shape}")
