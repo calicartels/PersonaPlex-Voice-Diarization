@@ -1,5 +1,7 @@
-import sys
+import sys, os
 import torch
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import PERSONAPLEX_REPO, MIMI_CHECKPOINT
 
 sys.path.insert(0, PERSONAPLEX_REPO)
@@ -49,7 +51,7 @@ with torch.no_grad():
 print("\n=== Full named_parameters (first 30) ===")
 params = list(et.named_parameters())
 for i, (name, p) in enumerate(params):
-    if i >= 90:
+    if i >= 30:
         print(f"  ... ({len(params)} total)")
         break
     print(f"  {name}: {p.shape}")
