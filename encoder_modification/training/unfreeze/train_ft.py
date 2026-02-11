@@ -6,8 +6,8 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MANIFESTS, CKPT, LR, WEIGHT_DECAY, WARMUP, MAX_EPOCHS, VAL_EVERY, PERSONAPLEX_REPO, MIMI_CHECKPOINT
 
-sys.path.insert(0, PERSONAPLEX_REPO)
-from moshi.models.loaders import get_mimi
+    sys.path.insert(0, PERSONAPLEX_REPO)
+    from moshi.models.loaders import get_mimi
 from model_ft import MimiSpeakerFT, hybrid_loss
 from load_ft import make_loader_ft
 

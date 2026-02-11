@@ -1,0 +1,1 @@
+Encoder fusion: Mimi + TitaNet for speaker diarization. Concatenates embeddings from both encoders, trains adapter with Sort Loss + PIL. Reuses training data pipeline (download, simulate, process_rttm). Run: bash run.sh from encoder_modification. Requires GPU, NeMo, same env as training.
