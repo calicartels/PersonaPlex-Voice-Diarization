@@ -10,10 +10,12 @@ from config import MANIFESTS, CKPT, MAX_SPEAKERS
 from model import FusionSpeaker
 from load import make_loader
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "training"))
-from config import MANIFESTS as TRAIN_MF, CKPT as TRAIN_CKPT
-from model import MimiSpeaker as TrainMimiSpeaker
-from load import make_loader as train_make_loader
+mod_root = Path(__file__).parent.parent
+sys.path.insert(0, str(mod_root))
+sys.path.insert(0, str(mod_root / "training"))
+from training.config import MANIFESTS as TRAIN_MF, CKPT as TRAIN_CKPT
+from training.model import MimiSpeaker as TrainMimiSpeaker
+from training.load import make_loader as train_make_loader
 
 
 def compute_der(pred, true):
