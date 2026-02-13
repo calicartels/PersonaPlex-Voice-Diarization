@@ -10,12 +10,32 @@ from config import MANIFESTS, CKPT, MAX_SPEAKERS
 from model import FusionSpeaker
 from load import make_loader
 
-mod_root = Path(__file__).parent.parent
-sys.path.insert(0, str(mod_root))
-sys.path.insert(0, str(mod_root / "training"))
-from training.config import MANIFESTS as TRAIN_MF, CKPT as TRAIN_CKPT
-from training.model import MimiSpeaker as TrainMimiSpeaker
-from training.load import make_loader as train_make_loader
+mod_root = Path(__file__).resolve().parent.parent
+train_dir = mod_root / "training"
+
+import importlib.util
+train_config = importlib.util.module_from_spec(
+    importlib.util.spec_from_file_location("train_config", train_dir / "config.py")
+)
+train_config.__loader__.exec_module(train_config)
+TRAIN_MF = train_config.MANIFESTS
+TRAIN_CKPT = train_config.CKPT
+
+_saved_config = sys.modules.get("config")
+sys.modules["config"] = train_config
+train_model = importlib.util.module_from_spec(
+    importlib.util.spec_from_file_location("train_model", train_dir / "model.py")
+)
+train_model.__loader__.exec_module(train_model)
+TrainMimiSpeaker = train_model.MimiSpeaker
+
+train_load = importlib.util.module_from_spec(
+    importlib.util.spec_from_file_location("train_load", train_dir / "load.py")
+)
+train_load.__loader__.exec_module(train_load)
+if _saved_config is not None:
+    sys.modules["config"] = _saved_config
+train_make_loader = train_load.make_loader
 
 
 def compute_der(pred, true):
