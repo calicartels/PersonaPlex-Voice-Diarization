@@ -1,8 +1,15 @@
 # PersonaPlex Voice Diarization
 
-Implementing speaker diarization on Mimi neural audio codec embeddings. PersonaPlex uses Mimi as its codec; Mimi was trained for reconstruction, not speaker discrimination. We explore whether we can add a lightweight diarization adapter on top of frozen Mimi, or if we need a separate speaker encoder.
+## Goal: Tldr
 
-We ran five experiments in sequence, each building on the last. Rented a Vast.ai A100/4090, kept costs low—no training from scratch, just adapters and fusion.
+To basically transform Nvidia's PersonaPlex model, which is part of a family of conversational models by Nvidia, built on top of the moshi model by kyutai. Since I dont really have too much in training expenditure, I only want to anlyze and modify the encoder for the same. 
+
+The encoder, referred to as the MiMi encoder, is said to encode both the semantic content(what a person speaks) along with their acoustic information(pitch, tone etc.) and produce a vector with both this information encoded in it. 
+
+My task to analyze whether MiMi comes out of the box with speaker diarization enabled, even though its not built for that, and whether it can capture these acoustic information to carefully split the different types of speakers. 
+
+And if its not doing so, possibly make changes to the encoder to make it possible for it to diarize voice on the fly
+
 
 ## Problem
 
