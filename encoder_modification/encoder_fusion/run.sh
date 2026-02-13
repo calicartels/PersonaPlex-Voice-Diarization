@@ -56,4 +56,14 @@ python train.py
 echo "Step 8: Evaluate"
 python eval.py
 
+echo "Step 9: Compare to Mimi baseline"
+python compare_baseline.py
+
+echo "Step 10: Upload to HuggingFace"
+if [ -n "$HF_REPO" ] || [ -n "$HF_TOKEN" ]; then
+    HF_REPO="${HF_REPO:-TMVishnu/personaplex-voice-diarization}" python upload_checkpoint.py
+else
+    echo "  Skipping upload (set HF_REPO and HF_TOKEN to enable)"
+fi
+
 echo "Done. Checkpoint: $ROOT/checkpoints_fusion/best.pt"
