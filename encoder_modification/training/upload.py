@@ -17,10 +17,10 @@ def upload_best(repo_id=None, token=None):
     best = CKPT / "best.pt"
     if not best.exists():
         return False
-    
+
     if not repo_id:
         return False
-    
+
     upload_to_hf(repo_id, best, token)
     return True
 

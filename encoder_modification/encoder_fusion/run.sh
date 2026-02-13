@@ -5,7 +5,13 @@ ROOT="${DIARIZATION_ROOT:-/workspace/diarization}"
 TRAIN="$(pwd)/training"
 FUSION="$(pwd)/encoder_fusion"
 
-python -c "import torch, nemo" 2>/dev/null || pip install -q -r "$TRAIN/requirements.txt" --timeout 120 --retries 5
+if [ "$1" = "--check" ]; then
+    cd "$FUSION" && python check_manifests.py
+    exit 0
+fi
+
+REQ="$(cd "$(dirname "$0")/../.." && pwd)/requirements.txt"
+python -c "import torch, nemo" 2>/dev/null || pip install -q -r "$REQ" --timeout 120 --retries 5
 
 echo "Step 1: Download data"
 python "$TRAIN/download.py"
@@ -40,28 +46,22 @@ else
     python "$TRAIN/process_rttm.py"
 fi
 
-echo "Step 4: Fix AMI manifest"
-python "$TRAIN/fix_ami_manifest.py"
-
-echo "Step 5: Extract Mimi + TitaNet fused embeddings"
+echo "Step 4: Extract Mimi + TitaNet fused embeddings"
 cd "$FUSION"
 python extract.py
 
-echo "Step 6: Merge manifests"
+echo "Step 5: Merge manifests"
 python merge.py
 
-echo "Step 7: Train"
+echo "Step 6: Train"
 python train.py
 
-echo "Step 8: Evaluate"
-python eval.py
+echo "Step 7: Evaluate (with --compare for Mimi vs Fusion)"
+python eval.py --compare
 
-echo "Step 9: Compare to Mimi baseline"
-python compare_baseline.py
-
-echo "Step 10: Upload to HuggingFace"
+echo "Step 8: Upload to HuggingFace"
 if [ -n "$HF_REPO" ] || [ -n "$HF_TOKEN" ]; then
-    HF_REPO="${HF_REPO:-TMVishnu/personaplex-voice-diarization}" python upload_checkpoint.py
+    HF_REPO="${HF_REPO:-TMVishnu/personaplex-voice-diarization}" python upload.py
 else
     echo "  Skipping upload (set HF_REPO and HF_TOKEN to enable)"
 fi

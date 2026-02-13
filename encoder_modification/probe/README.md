@@ -1,26 +1,50 @@
-# probe
+# Exp 1.5: Linear Probe
 
-Linear probe to test whether speaker identity is linearly separable
-in Mimi's pre-quantization embeddings.
-
-## Files
-
-- `train.py` — trains a linear classifier (512 -> num_speakers) on cached embeddings
-- `eval.py` — projects embeddings through learned weights, computes EER
+Is speaker identity linearly separable with a learned transform?
 
 ## Method
 
-Loads the .npz cache from Step 0. Extracts speaker labels from utterance IDs.
-Trains a single linear layer with cross-entropy loss to classify speakers.
-After training, uses the weight matrix as a projection: each 512-dim embedding
-is mapped to a speaker-discriminative subspace. EER is computed with cosine
-similarity on the projected embeddings using the same VoxCeleb1-O pairs.
+- Train a single linear layer (512 → N speakers) on VoxCeleb1
+- Evaluate EER in the projected space
 
-## Why train and test on the same set
+## Result
 
-We only have VoxCeleb1 test (40 speakers, 4874 utterances). This is not
-a generalization test — it's a capacity test. We ask: does the 512-dim
-space contain linear directions that separate speakers? If the probe can't
-separate them even with full access to labels, the signal is too weak.
-If it can, the 3-layer Transformer adapter has a real chance on unseen speakers.
+**EER = 20.48%** (down from 35.01% baseline)
 
+| Metric | Value |
+|--------|-------|
+| Mean positive-pair score | 0.697 |
+| Mean negative-pair score | 0.278 |
+| Score gap | 0.419 |
+| Training accuracy | 79.6% |
+
+## Why it happened
+
+The linear layer learned directions that separate speakers. Speaker identity is not axis-aligned in the raw space, but it's linearly accessible. A deeper adapter should do even better.
+
+## Architecture
+
+```
+Audio → Mimi (frozen) → 512-d embeddings
+                            │
+                            ▼
+                    ┌───────────────┐
+                    │ Linear(512→N) │  N = num speakers
+                    └───────────────┘
+                            │
+                            ▼  cosine sim in projected space
+                    ┌───────────────┐
+                    │ EER 20.48%   │
+                    └───────────────┘
+```
+
+## Run
+
+```bash
+cd encoder_modification && python run_linear_probe.py
+```
+
+## Files
+
+- `train.py` — linear classifier on cached embeddings
+- `eval.py` — EER in projected space

@@ -1,6 +1,14 @@
-# MimiSpeaker: Speaker Diarization Adapter on Frozen Mimi Codec Embeddings
+# Exp 2: Adapter on Frozen Mimi
 
 Train a lightweight 7.3M-parameter Transformer adapter on frozen Mimi encoder embeddings for speaker diarization, using Sort Loss + PIL (Hybrid Loss) inspired by [Sortformer](https://arxiv.org/abs/2409.06656) and [PersonaPlex].
+
+## Result
+
+**FA+Miss 4.6%, confusion ~33%** — Good VAD, weak speaker ID. Mimi gives *when* (speech boundaries) but not *who* (speaker channel assignment).
+
+## Why it happened
+
+Mimi's embeddings carry enough for "is someone talking?" but not enough for "which of these four voices is this?" The codec was never trained to discriminate speakers; its bottleneck likely discards fine-grained identity cues.
 
 ## Requirements
 
@@ -111,24 +119,22 @@ python download.py
 python simulate.py
 
 # Step 5c: Convert RTTM annotations to frame-level labels (12.5Hz, 80ms frames)
+# Also patches AMI audio paths in manifest
 python process_rttm.py
 
-# Step 5d: Fix AMI manifest (download.py leaves audio_filepath empty)
-python fix_ami_manifest.py
-
-# Step 5e: Extract Mimi embeddings (~30 min)
+# Step 5d: Extract Mimi embeddings (~30 min)
 # Processes audio through frozen Mimi encoder + encoder_transformer
 # Long files (AMI meetings) are chunked at 60s to fit 24GB VRAM
 python extract.py
 
-# Step 5f: Merge all manifests into train/val splits
+# Step 5e: Merge all manifests into train/val splits
 python merge.py
 
-# Step 5g: Train the adapter (~20-30 min)
+# Step 5f: Train the adapter (~20-30 min)
 python train.py
 # Select option 3 (offline) for wandb if not using cloud logging
 
-# Step 5h: Evaluate
+# Step 5g: Evaluate
 python eval.py
 ```
 
@@ -137,19 +143,24 @@ python eval.py
 ## Architecture
 
 ```
-Audio (24kHz) → Mimi Encoder (frozen, 512-dim, 25Hz)
-                    ↓
-              Stride-2 Downsample (→ 12.5Hz, matches label frame rate)
-                    ↓
-              Linear Projection (512 → 384)
-                    ↓
-              Sinusoidal Positional Encoding
-                    ↓
-              4× Transformer Encoder Layers (384-dim, 6 heads, 1536 FFN)
-                    ↓
-              Linear Head (384 → 4 speakers)
-                    ↓
-              Sigmoid → Per-frame, per-speaker activity probabilities
+Audio (24kHz)
+    │
+    ▼
+┌─────────────────────┐
+│  Mimi Encoder       │  frozen, 512-d @ 25Hz
+└─────────────────────┘
+    │
+    ▼  stride-2 → 12.5Hz (matches label frame rate)
+┌─────────────────────┐
+│  Linear(512→384)    │
+│  + Pos Encoding     │
+│  4× Transformer     │  384-d, 6 heads, 1536 FFN
+│  Linear(384→4)      │
+│  Sigmoid            │  per-frame, per-speaker
+└─────────────────────┘
+    │
+    ▼
+FA+Miss 4.6%  |  Confusion ~33%
 ```
 
 **Total trainable parameters**: 7,296,388 (~7.3M)
@@ -209,7 +220,7 @@ Mimi encoder outputs at **25 Hz** (stride 960, 24000/960=25). Labels are at **12
 1. **CUDA version mismatch**: NeMo overwrites torch with different CUDA build → force-reinstall after NeMo
 2. **NeMo simulator missing config fields**: YAML needs all 6 sections (rir_generation, background_noise, etc.)
 3. **LibriSpeech manifest**: Needs speaker_id, words, and alignments fields for NeMo
-4. **AMI empty audio paths**: download.py leaves `audio_filepath: ""` → fix_ami_manifest.py patches it
+4. **AMI empty audio paths**: process_rttm.py now patches AMI audio paths (fix_manifest_paths) automatically
 5. **Mimi encoder_transformer returns list**: Unwrap with `emb[0] if isinstance(emb, list) else emb`
 6. **AMI OOM on full meetings**: 85-minute meetings don't fit in 24GB VRAM → chunk at 60s
 7. **25Hz vs 12.5Hz frame mismatch**: Stride-2 downsample in dataloader
@@ -243,7 +254,6 @@ encoder_modification/training/
 ├── download.py         # Download LibriSpeech + AMI + VoxConverse
 ├── simulate.py         # NeMo multi-speaker session simulator
 ├── process_rttm.py     # RTTM → frame-level labels (12.5Hz)
-├── fix_ami_manifest.py # Patch AMI audio paths in manifest
 ├── extract.py          # Mimi embedding extraction (chunked for long files)
 ├── merge.py            # Combine manifests into train/val splits
 ├── model.py            # MimiSpeaker model + hybrid loss

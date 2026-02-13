@@ -1,45 +1,165 @@
-# PersonaPlex Voice Diarization Analysis
+# PersonaPlex Voice Diarization
 
-## Goal
+Implementing speaker diarization on Mimi neural audio codec embeddings. PersonaPlex uses Mimi as its codec; Mimi was trained for reconstruction, not speaker discrimination. We explore whether we can add a lightweight diarization adapter on top of frozen Mimi, or if we need a separate speaker encoder.
 
-Analyze whether the Mimi encoder (from PersonaPlex/Moshi) can be used for speaker diarization. The core question: **Does Mimi capture acoustic (speaker) information or semantic (text) information?**
+We ran five experiments in sequence, each building on the last. Rented a Vast.ai A100/4090, kept costs low—no training from scratch, just adapters and fusion.
 
 ## Problem
 
-Mimi was trained for text-to-speech (TTS), not speaker recognition. Initial analysis shows it captures text content more than speaker identity:
-- Same text, different speakers: HIGH similarity (bad)
-- Same speaker, different text: LOWER similarity (bad)
-- This is backwards from what we need for diarization
+**Can you modify an existing neural audio codec to add speaker diarization?**
 
-## Solution
+Mimi encodes identity but it's entangled with phonemes, prosody, and channel noise. The question: is that signal accessible enough for diarization, or do we need a dedicated speaker encoder?
 
-Through systematic testing, we discovered that PCA post-processing transforms Mimi embeddings from text-focused to voice-focused, making speaker diarization possible (though not ideal).
+## Experiment Progression
 
-## Documentation
+![PersonaPlex - Experiment Progression](assets/experiment.png)
 
-### Analysis Suite
-- **[mimi_analysis/README.md](mimi_analysis/README.md)** - Complete analysis suite overview, problem statement, and success metrics
+*Can Mimi (audio codec) do speaker diarization?* The diagram shows all five experiments in sequence. **Mimi → WHEN (VAD)** | **TitaNet → WHO (ID)** | **Fusion = Best**
 
-### Output Guide
-- **[mimi_analysis/OUTPUTS_MASTER_GUIDE.md](mimi_analysis/OUTPUTS_MASTER_GUIDE.md)** - Master guide explaining all generated plots and outputs
+---
 
-### Stage Documentation
-- **[mimi_analysis/stage-1_exploration/README.md](mimi_analysis/stage-1_exploration/README.md)** - Initial encoder exploration
-- **[mimi_analysis/stage-2_architecture/README.md](mimi_analysis/stage-2_architecture/README.md)** - Model architecture analysis
-- **[mimi_analysis/stage-3_voice_exploration/README.md](mimi_analysis/stage-3_voice_exploration/README.md)** - Single voice deep dive
-- **[mimi_analysis/stage-4_voice_comparison/README.md](mimi_analysis/stage-4_voice_comparison/README.md)** - Multi-voice comparison
-- **[mimi_analysis/stage-5_diagnostic_suite/README.md](mimi_analysis/stage-5_diagnostic_suite/README.md)** - Comprehensive diagnostic testing
-- **[mimi_analysis/stage-6_edge_cases/README.md](mimi_analysis/stage-6_edge_cases/README.md)** - Edge case and boundary testing
+## The Story: Five Experiments in Sequence
 
-## Quick Start
+We tested options one after the other. Each experiment answered a specific question and led to the next.
 
-1. Read [mimi_analysis/README.md](mimi_analysis/README.md) for the full problem statement and methodology
-2. Check [mimi_analysis/OUTPUTS_MASTER_GUIDE.md](mimi_analysis/OUTPUTS_MASTER_GUIDE.md) to understand the results
-3. Review stage-specific READMEs for detailed analysis procedures
+### Experiment 1: Baseline — Is there any speaker signal at all?
 
-## Key Findings
+**Question:** Does Mimi's pre-quantization embedding space contain speaker information, or is it purely content-focused?
 
-- **Before PCA:** Acoustics score = -0.09 (captures text, not voice)
-- **After PCA:** Acoustics score = +0.13 (captures voice)
-- **Separability:** Improved from 0.55 to ~0.8-1.0 (still below target of 2.0)
-- **Verdict:** Usable but not ideal - requires heavy post-processing
+**What we did:** Extract 512-d embeddings from frozen Mimi for VoxCeleb1, mean-pool each utterance, compute cosine similarity on 37,611 verification pairs. No training.
+
+**Result: EER 35.01%**
+
+**Why it happened:** Same-speaker pairs scored higher (0.572) than different-speaker pairs (0.447)—so speaker info exists. But 35% EER means the distributions overlap heavily. Mimi was trained to reconstruct audio; speaker identity is encoded but tangled with phonemes, prosody, and channel. Raw cosine on a mean-pooled vector is too crude to untangle it.
+
+**Conclusion:** Signal exists. Need a learned transform.
+
+---
+
+### Experiment 1.5: Linear Probe — Is the signal linearly separable?
+
+**Question:** Can a simple linear layer extract speaker identity from the 512-d space?
+
+**What we did:** Train a single linear layer (512 → N speakers) on VoxCeleb1, then evaluate EER in the projected space.
+
+**Result: EER 20.48%** (down from 35%)
+
+**Why it happened:** The linear layer learned directions that separate speakers. Score gap widened from 0.125 to 0.419. Speaker identity is not axis-aligned in the raw space, but it's linearly accessible. A deeper model should do even better.
+
+**Conclusion:** Worth building a full adapter. Proceed to diarization.
+
+---
+
+### Experiment 2: Adapter on Frozen Mimi — Can we do diarization?
+
+**Question:** Can a 4-layer Transformer adapter on frozen Mimi embeddings perform speaker diarization (who spoke when)?
+
+**What we did:** Train adapter on AMI + NeMo-simulated LibriSpeech. Mimi frozen. Adapter: Linear(512→384) → 4× Transformer → Head(4 speakers) → Sigmoid. Hybrid loss (Sort + PIL).
+
+**Result: FA+Miss 4.6%, confusion ~33%**
+
+**Why it happened:** The model nailed *when* speech occurs—VAD is excellent. But it frequently assigned the wrong speaker channel. Mimi's embeddings carry enough for "is someone talking?" but not enough for "which of these four voices is this?" The codec was never trained to discriminate speakers; its bottleneck likely discards fine-grained identity cues.
+
+**Conclusion:** Mimi gives when, not who. Need speaker-specific signal.
+
+---
+
+### Experiment 2.5: Unfreeze — Can we fix Mimi from the inside?
+
+**Question:** Maybe Mimi has speaker info deeper in the network. Can fine-tuning the top layers unlock it?
+
+**What we did:** Unfreeze top 3 of 8 `encoder_transformer` layers. Same adapter, same data, same loss. Dual learning rates (lower for Mimi, higher for adapter).
+
+**Result: Confusion 33% → 46%** (worse)
+
+**Why it happened:** Fine-tuning made speaker discrimination worse. Mimi's architecture was optimized for reconstruction. The codec objective doesn't preserve speaker-discriminative information—it likely suppresses it to avoid overfitting to speaker-specific quirks. Modifying Mimi's internals doesn't create capability that wasn't trained in.
+
+**Conclusion:** Don't touch Mimi. Add a dedicated speaker encoder instead.
+
+---
+
+### Experiment 3: Fusion — Mimi + TitaNet
+
+**Question:** Can we fuse Mimi (VAD, acoustic features) with TitaNet (speaker embeddings) and get the best of both?
+
+**What we did:** Run audio through Mimi (frozen) and TitaNet (frozen). Concat 512 + 192 = 704-d. Same adapter architecture. Same data pipeline.
+
+**Result: DER 60.93% vs Mimi-only 65.03%** (−4.1%)
+
+**Why it happened:** TitaNet injects speaker identity. DER dropped. Confusion still high (~57%) because we predict at frame level—segment-level interpolation and overlapping speech remain hard. But the direction is right: hybrid encoder works.
+
+**Conclusion:** Mimi + dedicated speaker encoder is the path forward.
+
+---
+
+## Results Summary
+
+| Experiment | Result | Why |
+|------------|--------|-----|
+| **1: Baseline** | EER 35.01% | Speaker info present but entangled. Raw cosine insufficient. |
+| **1.5: Linear Probe** | EER 20.48% | Signal linearly separable. Adapter worth trying. |
+| **2: Adapter** | FA+Miss 4.6%, confusion ~33% | Good VAD, weak speaker ID. Mimi gives when, not who. |
+| **2.5: Unfreeze** | Confusion 33% → 46% | Fine-tuning made it worse. Codec discards speaker info. |
+| **3: Fusion** | DER 60.93% vs 65.03% (−4.1%) | TitaNet helps. Hybrid encoder is the answer. |
+
+---
+
+## Experiments
+
+| Experiment | README | Entry point |
+|------------|--------|-------------|
+| Exp 1: Baseline | [baseline/README.md](encoder_modification/baseline/README.md) | `run_baseline.py` |
+| Exp 1.5: Linear probe | [probe/README.md](encoder_modification/probe/README.md) | `run_linear_probe.py` |
+| Adapter (VoxCeleb PoC) | [adapter/README.md](encoder_modification/adapter/README.md) | `run_adapter.py` |
+| Exp 2: Adapter (AMI) | [training/README.md](encoder_modification/training/README.md) | `training/train.py` |
+| Exp 2.5: Unfreeze | [training/unfreeze/README.md](encoder_modification/training/unfreeze/README.md) | `training/unfreeze/run_ft.sh` |
+| Exp 3: Fusion | [encoder_fusion/README.md](encoder_modification/encoder_fusion/README.md) | `encoder_fusion/run.sh` |
+
+## Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+Paths auto-detect from repo structure. Override via env vars:
+- `ENCODER_MODIFICATION_ROOT` — project root
+- `MIMI_CHECKPOINT` — Mimi weights path
+- `DIARIZATION_ROOT` — data root (default `/workspace/diarization`)
+
+### Colab
+
+```python
+import os
+os.environ["ENCODER_MODIFICATION_ROOT"] = "/content/PersonaPlex-Voice-Diarization"
+os.environ["MIMI_CHECKPOINT"] = "/content/weights/tokenizer-e351c8d8-checkpoint125.safetensors"
+```
+
+Download Mimi checkpoint from [nvidia/personaplex-7b-v1](https://huggingface.co/nvidia/personaplex-7b-v1) (gated, accept license first).
+
+## File structure
+
+```
+PersonaPlex-Voice-Diarization/
+├── requirements.txt
+├── assets/                 
+├── encoder_modification/
+│   ├── config.py
+│   ├── run_baseline.py
+│   ├── run_linear_probe.py
+│   ├── run_adapter.py
+│   ├── baseline/          # Exp 1
+│   ├── probe/             # Exp 1.5
+│   ├── data/
+│   ├── adapter/           # VoxCeleb PoC
+│   ├── training/          # Exp 2
+│   │   └── unfreeze/      # Exp 2.5
+│   └── encoder_fusion/    # Exp 3
+├── moshi/
+└── weights/
+```
+
+## References
+
+- [Sortformer](https://arxiv.org/abs/2409.06656) — Sort Loss + PIL for diarization
+- [PersonaPlex](https://arxiv.org/abs/2501.03489) — Voice and role control
+- [Moshi/Mimi](https://github.com/kyutai/moshi) — Neural audio codec

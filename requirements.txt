@@ -1,0 +1,17 @@
+torch>=2.1
+torchaudio>=2.1
+numpy
+scipy
+matplotlib
+soundfile
+pyyaml
+datasets>=2.14
+huggingface_hub
+moshi
+hydra-core
+omegaconf
+tqdm
+wandb
+nemo_toolkit[asr]>=1.20.0
+safetensors
+scikit-learn

@@ -7,7 +7,7 @@ echo "Target: 1x RTX 4090, 16 CPU, 717GB disk"
 # Choice: skip pip if torch already importable. Saves 1-2 min on reruns.
 # Alternative: always run pip (safer but slower).
 python -c "import torch, nemo" 2>/dev/null && echo "Dependencies already installed" \
-    || pip install -q -r requirements.txt --timeout 120 --retries 5
+    || pip install -q -r ../../requirements.txt --timeout 120 --retries 5
 
 echo "Step 1: Download data"
 python download.py
@@ -49,9 +49,6 @@ else
     python process_rttm.py
 fi
 
-echo "Step 3.5: Fix AMI manifest (audio paths)"
-python fix_ami_manifest.py
-
 echo "Step 4: Extract Mimi embeddings"
 # extract.py already skips existing .npy files internally
 python extract.py
@@ -69,7 +66,7 @@ python eval.py
 
 echo "Step 8: Upload checkpoint to HuggingFace"
 if [ -n "$HF_REPO" ]; then
-    python upload_checkpoint.py
+    python upload.py
 else
     echo "  Skipping upload (set HF_REPO env var to enable)"
 fi

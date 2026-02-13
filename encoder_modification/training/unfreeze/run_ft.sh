@@ -21,7 +21,7 @@ python eval_ft.py
 echo "Step 5: Upload checkpoint"
 if [ -n "$HF_REPO" ]; then
     cd ..
-    python upload_checkpoint.py
+    python upload.py
     cd unfreeze
 else
     echo "  Skipping upload (set HF_REPO env var to enable)"
